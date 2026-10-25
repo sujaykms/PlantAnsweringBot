@@ -6,7 +6,7 @@ colorTo: green
 sdk: docker
 app_port: 7860
 pinned: false
-short_description: Ask plant safety, maintenance and quality docs; answers cite sources.
+short_description: Plant docs Q&A for safety, maintenance and quality
 ---
 
 Answers floor supervisors' questions from safety procedures, maintenance manuals and quality standards.

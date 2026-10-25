@@ -109,7 +109,7 @@ def verify_node(state: ChatState) -> dict:
     return {
         "verification": v,
         "retry": False,
-        "answer": answer.NOT_FOUND_REPLY,
+        "answer": answer.not_found_text(state["decision"]),
         "not_found": True,
     }
 

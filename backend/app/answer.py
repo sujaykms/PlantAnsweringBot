@@ -35,7 +35,21 @@ NONE_REPLY = (
 )
 
 
+EMERGENCY_REPLY = (
+    "⚠️ This looks like an emergency. Stop work, get people to safety, and call your supervisor "
+    "and the site emergency number now. The documentation has no verified procedure for this "
+    "situation, so don't wait for an answer here."
+)
+
+
+def not_found_text(decision: RouteDecision) -> str:
+    """Not-found message; in an emergency, point to people instead of 'try rephrasing'."""
+    return EMERGENCY_REPLY if decision.emergency else NOT_FOUND_REPLY
+
+
 def canned_reply(decision: RouteDecision, not_found: bool) -> str | None:
+    if decision.emergency and (not decision.searched or not_found):
+        return EMERGENCY_REPLY
     if not decision.searched:
         return NONE_REPLY
     if not_found:

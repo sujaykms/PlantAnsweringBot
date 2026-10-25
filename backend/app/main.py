@@ -91,7 +91,7 @@ async def chat(req: ChatRequest, request: Request):
             yield {"event": "sources", "data": SourcesEvent(chunks=chunks).model_dump_json()}
 
             # Answer is released only after generation + verification (buffered delivery).
-            text = state.get("answer") or answer.NOT_FOUND_REPLY
+            text = state.get("answer") or answer.not_found_text(state["decision"])
             verification = state.get("verification")
             for piece in _word_chunks(text):
                 yield {"event": "token", "data": TokenEvent(text=piece).model_dump_json()}

@@ -1,39 +1,21 @@
 "use client";
 import { Info } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
 import type { RouteDecision } from "@/lib/types";
 import { styleFor } from "./source";
 
 export function RouteBadges({ route }: { route: RouteDecision }) {
   const searched = route.searched.filter((l) => l !== "none");
-  const names = searched.map((l) => styleFor(l).label).join(" + ");
+  const names = searched.map((l) => styleFor(l).label).join(" · ");
   return (
     <Popover>
       <PopoverTrigger
-        className="flex min-h-11 flex-wrap items-center gap-2 rounded-lg px-1 text-left text-sm text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="-ml-2 mb-1 flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-left text-[0.8125rem] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-brand"
         aria-label="Why these sources?"
       >
-        <span>{names ? `Searching ${names}` : "No document search"}</span>
-        {searched.map((l) => (
-          <span
-            key={l}
-            className={cn(
-              "rounded-full border px-2.5 py-0.5 text-xs font-semibold",
-              styleFor(l).text,
-              styleFor(l).bg,
-              styleFor(l).border,
-            )}
-          >
-            {styleFor(l).label}
-          </span>
-        ))}
-        {route.fallback && (
-          <span className="rounded-full border border-hazard bg-hazard/20 px-2.5 py-0.5 text-xs font-semibold text-foreground">
-            Widened search
-          </span>
-        )}
-        <Info className="size-4" />
+        <span>{names ? `Searched ${names}` : "No document search"}</span>
+        {route.fallback && <span>· widened search</span>}
+        <Info className="size-3.5" />
       </PopoverTrigger>
       <PopoverContent className="w-80 space-y-2 text-sm">
         <p>{route.reason || "No reason given."}</p>

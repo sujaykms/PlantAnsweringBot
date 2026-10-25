@@ -145,3 +145,61 @@
   --color-quality: var(--src-quality);
   --color-hazard: var(--hazard);
 }
+
+/* ---- Redesign: calm neutral surfaces + one restrained accent ---- */
+:root {
+  --background: oklch(0.992 0.002 250);
+  --foreground: oklch(0.22 0.01 250);
+  --muted: oklch(0.965 0.004 250);
+  --muted-foreground: oklch(0.47 0.012 250);
+  --border: oklch(0.915 0.005 250);
+  --input: oklch(0.88 0.006 250);
+  --sidebar: oklch(0.968 0.004 250);
+  --primary: oklch(0.24 0.01 250);
+  --primary-foreground: oklch(0.985 0 0);
+  --user-bubble: oklch(0.955 0.005 250);
+  --brand: oklch(0.5 0.085 195);
+  --ring: oklch(0.5 0.085 195);
+}
+.dark {
+  --background: oklch(0.2 0.006 250);
+  --foreground: oklch(0.93 0.004 250);
+  --card: oklch(0.245 0.007 250);
+  --muted: oklch(0.27 0.007 250);
+  --muted-foreground: oklch(0.72 0.01 250);
+  --sidebar: oklch(0.165 0.006 250);
+  --primary: oklch(0.93 0.004 250);
+  --primary-foreground: oklch(0.2 0.006 250);
+  --user-bubble: oklch(0.29 0.008 250);
+  --brand: oklch(0.76 0.1 190);
+  --ring: oklch(0.76 0.1 190);
+}
+@theme inline {
+  --color-brand: var(--brand);
+  --color-user-bubble: var(--user-bubble);
+}
+html { color-scheme: light; }
+html.dark { color-scheme: dark; }
+body { font-size: 1rem; line-height: 1.6; }
+@keyframes status-pulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1); }
+}
+@keyframes status-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+.status-dot { animation: status-pulse 1.4s ease-in-out infinite; }
+.status-text {
+  background: linear-gradient(90deg, var(--muted-foreground) 35%, var(--foreground) 50%, var(--muted-foreground) 65%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: status-shimmer 2.4s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .status-dot, .status-text { animation: none; }
+  .status-text { color: var(--muted-foreground); background: none; }
+  * { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+}

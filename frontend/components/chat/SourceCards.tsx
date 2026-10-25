@@ -41,19 +41,22 @@ function SourceCard({
   return (
     <li
       id={cardDomId(scope, c.id)}
-      className={cn("rounded-xl border border-l-4 bg-card transition-shadow", s.border, flash && "ring-2 ring-hazard")}
+      className={cn("rounded-xl border bg-card/60 transition-shadow", flash && "ring-2 ring-brand")}
     >
       <button
         type="button"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        className="flex min-h-14 w-full items-start gap-3 rounded-xl p-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex min-h-14 w-full items-start gap-3 rounded-xl p-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-brand"
       >
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className={cn("text-xs font-semibold", s.text)}>{s.label}</span>
+            <span className={cn("flex items-center gap-1.5 text-xs font-medium", s.text)}>
+              <span className="size-1.5 rounded-full bg-current" />
+              {s.label}
+            </span>
             {cited && (
-              <span className="rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold text-primary-foreground">
+              <span className="rounded-full border border-brand/40 px-1.5 text-[11px] font-medium text-brand">
                 Cited
               </span>
             )}
@@ -64,7 +67,7 @@ function SourceCard({
             {c.page != null && ` · p.${c.page}`}
           </p>
         </div>
-        <span className="font-mono text-xs text-muted-foreground">{score.toFixed(2)}</span>
+        <span className="hidden font-mono text-xs text-muted-foreground sm:inline">{score.toFixed(2)}</span>
         <ChevronDown className={cn("size-5 shrink-0 transition-transform", open && "rotate-180")} />
       </button>
       {open && (
@@ -104,17 +107,16 @@ export function SourceCards({
   if (!sources.length) return null;
   const fo = (id: string) => (focus?.ids.includes(id) ? focus.n : undefined);
   return (
-    <div className="mt-3">
+    <div className="mt-2">
       <button
         type="button"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        className="flex min-h-11 items-center gap-2 rounded-lg px-1 text-sm font-medium text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex min-h-11 items-center gap-2 rounded-lg px-1 text-sm font-medium text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-brand"
       >
         <ChevronDown className={cn("size-4 transition-transform", !open && "-rotate-90")} />
-        {cited.length > 0
-          ? `${cited.length} cited source${cited.length > 1 ? "s" : ""}${other.length ? ` · ${other.length} more` : ""}`
-          : `${sources.length} source${sources.length > 1 ? "s" : ""}`}
+        Sources ({sources.length})
+        {cited.length > 0 && <span className="font-normal">· {cited.length} cited</span>}
       </button>
       {open && (
         <div className="mt-1 space-y-2">
@@ -132,7 +134,7 @@ export function SourceCards({
                   type="button"
                   onClick={() => setAlsoOpen(!alsoOpen)}
                   aria-expanded={alsoOpen}
-                  className="flex min-h-11 items-center gap-2 rounded-lg px-1 text-sm font-medium text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="flex min-h-11 items-center gap-2 rounded-lg px-1 text-sm font-medium text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-brand"
                 >
                   <ChevronDown className={cn("size-4 transition-transform", !alsoOpen && "-rotate-90")} />
                   Also retrieved ({other.length})

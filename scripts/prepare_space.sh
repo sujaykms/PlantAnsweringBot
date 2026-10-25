@@ -7,7 +7,7 @@ mkdir -p "$OUT"
 for item in Dockerfile Dockerfile.dockerignore backend frontend db docs docker; do
   rsync -a --delete \
     --exclude '.git' --exclude '.env' --exclude '.env.local' --exclude 'node_modules' --exclude '.next' \
-    --exclude '.venv' --exclude '__pycache__' --exclude 'tests' \
+    --exclude '.venv' --exclude '__pycache__' --exclude 'tests' --exclude '.pytest_cache' --exclude '*.tsbuildinfo' \
     "$ROOT/$item" "$OUT/"
 done
 cp "$ROOT/huggingface/README.md" "$OUT/README.md"

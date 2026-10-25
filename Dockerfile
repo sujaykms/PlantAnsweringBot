@@ -46,6 +46,9 @@ USER user
 # Create + migrate + ingest the database at build time; the entrypoint copies it to a fresh data dir.
 RUN bash /app/docker/seed.sh
 
+# Models are baked in, so never call the Hub at runtime.
+ENV HF_HUB_OFFLINE=1
+
 # Defaults mirror the local setup; override with platform variables. OPENROUTER_API_KEY is required.
 ENV PORT=7860 ROUTER_MODEL=qwen/qwen-2.5-7b-instruct GUARD_MODEL=google/gemini-2.5-flash-lite \
     ANSWER_MODEL=openai/gpt-4.1-mini

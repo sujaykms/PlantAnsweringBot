@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "deepeval>=4.3.1",
     "fastapi>=0.162.0",
     "langgraph>=1.2.17",
     "langgraph-checkpoint-postgres>=3.2.0",
@@ -28,3 +29,7 @@ dev = [
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+markers = [
+    "evals: LLM-based evaluation tests (slow, need OPENROUTER_API_KEY); run with -m evals",
+]
+addopts = "-m \"not evals\""

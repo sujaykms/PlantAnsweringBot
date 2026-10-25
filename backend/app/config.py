@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     rerank_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
     rerank_candidates: int = 20
     top_k: int = 6
-    min_rerank_score: float = -3.0
+    min_rerank_score: float = -8.5
 
 
 @lru_cache

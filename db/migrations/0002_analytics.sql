@@ -78,11 +78,13 @@ create table if not exists analytics.quality_specs (
   unique (part, characteristic)
 );
 
--- Read-only role for the text-to-SQL path.
+-- Read-only role for the text-to-SQL path. Created NOLOGIN with no password so a hosted database
+-- never ships a well-known credential. To enable the analytics path, set a strong password:
+--   alter role analytics_reader login password '<strong secret>';
 do $$
 begin
   if not exists (select 1 from pg_roles where rolname = 'analytics_reader') then
-    create role analytics_reader login password 'analytics_reader';
+    create role analytics_reader nologin;
   end if;
 end $$;
 

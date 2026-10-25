@@ -70,3 +70,12 @@ def sanitize_history(history: list[ChatTurn], max_turns: int = 6, max_chars: int
         if c:
             out.append(ChatTurn(role=t.role, content=c))
     return out
+
+
+def client_key(forwarded_for: str | None, peer: str | None) -> str:
+    """Rate-limit key: the visitor behind the proxy (first X-Forwarded-For hop), else the socket peer."""
+    if forwarded_for:
+        first = forwarded_for.split(",")[0].strip()
+        if first:
+            return first
+    return peer or "unknown"

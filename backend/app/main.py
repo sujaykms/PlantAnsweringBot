@@ -11,7 +11,7 @@ from sse_starlette.sse import EventSourceResponse
 from starlette.concurrency import iterate_in_threadpool, run_in_threadpool
 
 from app import answer, embeddings, emergency, graph, store
-from app.guards.input import InputRejected, RateLimiter, sanitize_history, validate_message
+from app.guards.input import InputRejected, RateLimiter, client_key, sanitize_history, validate_message
 from app.contracts import ChatRequest, DoneEvent, SourcesEvent, StatusEvent, TokenEvent
 
 log = logging.getLogger(__name__)
@@ -49,7 +49,7 @@ def health() -> dict:
 
 @app.post("/chat")
 async def chat(req: ChatRequest, request: Request):
-    if not rate_limiter.check(request.client.host if request.client else "unknown"):
+    if not rate_limiter.check(client_key(request.headers.get("x-forwarded-for"), request.client.host if request.client else None)):
         raise HTTPException(status_code=429, detail="Too many requests — please wait a moment.")
     try:
         req.message = validate_message(req.message)

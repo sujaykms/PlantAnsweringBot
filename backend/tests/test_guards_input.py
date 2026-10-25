@@ -54,3 +54,11 @@ def test_sanitize_history():
     assert len(out) <= 6 and out[-1].content == "z" * 1500
     assert all(t.content == t.content.strip() for t in out)
     assert sanitize_history(h, max_turns=0) == []
+
+
+def test_client_key_prefers_forwarded_visitor():
+    from app.guards.input import client_key
+
+    assert client_key("203.0.113.9, 10.0.0.1", "127.0.0.1") == "203.0.113.9"
+    assert client_key(None, "127.0.0.1") == "127.0.0.1"
+    assert client_key("  ", None) == "unknown"

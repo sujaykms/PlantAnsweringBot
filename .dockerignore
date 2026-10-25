@@ -1,0 +1,14 @@
+.git
+.claude
+frontend
+evals
+docs
+db
+*.pptx
+**/__pycache__
+**/.venv
+**/.env
+**/node_modules
+backend/tests
+backend/scripts
+backend/ingest

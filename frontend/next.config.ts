@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: "standalone", // self-contained server for the Docker image
+  outputFileTracingRoot: import.meta.dirname,
+  compress: false, // gzip can buffer the SSE stream when proxied
   async rewrites() {
     return [
       {

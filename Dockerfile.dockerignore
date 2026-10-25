@@ -1,0 +1,11 @@
+.git
+.claude
+evals
+backend/tests
+*.pptx
+**/__pycache__
+**/.venv
+**/.env
+**/.env.local
+**/node_modules
+frontend/.next

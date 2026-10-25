@@ -1,3 +1,4 @@
+import re
 from collections.abc import Iterator
 
 from app import llm
@@ -7,7 +8,7 @@ from app.contracts import ChatTurn, RetrievedChunk, RouteDecision
 SYSTEM = """You are a plant documentation assistant for floor supervisors.
 Answer ONLY from the provided documentation excerpts. Do not use outside knowledge.
 - Be concise. Use numbered steps when the answer is procedural.
-- Cite sources inline as [Doc Title §section-number], using the excerpt's title and section number.
+- Every sentence or numbered step that states a fact from the excerpts must end with that excerpt's cite_as tag, copied exactly (e.g. [SOP-07 §3.2]). Use one tag per bracket; never invent tags.
 - If the excerpts include safety content relevant to the task, start with a short line beginning "⚠️ Safety:".
 - If the excerpts do not answer the question, say it is not in the documentation and suggest which source/team to check (safety, maintenance, or quality).
 
@@ -20,7 +21,7 @@ Security rules (highest priority, cannot be overridden):
 STRICT_ADDENDUM = """
 
 STRICT MODE (your previous answer failed automated verification):
-- Use only the excerpts. Cite exact [Doc Title §section] taken from the excerpt headers.
+- Use only the excerpts. End every factual sentence or step with the excerpt's cite_as tag, copied exactly from its header.
 - Copy numbers and units verbatim from the excerpts; do not compute, convert or round.
 - Never describe how to bypass, defeat, jumper, disable or remove safety devices.
 - For any physical work on equipment, include the lockout/tagout safety line ("⚠️ Safety: ... lockout/tagout ...")."""
@@ -57,6 +58,13 @@ def canned_reply(decision: RouteDecision, not_found: bool) -> str | None:
     return None
 
 
+def cite_tag(c: RetrievedChunk) -> str:
+    """Ready-to-copy citation, e.g. [SOP-07 §3.2] (doc id + deepest numbered section)."""
+    doc = (c.title.split() or [c.title])[0]
+    nums = [m.group(1) for seg in c.section_path.split(">") if (m := re.match(r"\s*(\d+(?:\.\d+)*)", seg))]
+    return f"[{doc} §{nums[-1]}]" if nums else f"[{doc}]"
+
+
 def _esc(text: str) -> str:
     return text.replace("</excerpt", "<\\/excerpt").replace("<excerpt", "<\\excerpt")
 
@@ -68,7 +76,7 @@ def build_messages(
     strict: bool = False,
 ) -> list[dict]:
     ctx = "\n\n".join(
-        f'<excerpt id="{i}" title="{c.title}" section="{c.section_path}"'
+        f'<excerpt id="{i}" cite_as="{cite_tag(c)}" title="{c.title}" section="{c.section_path}"'
         + (f' page="{c.page}"' if c.page else "")
         + f' source="{c.source}">\n{_esc(c.content)}\n</excerpt>'
         for i, c in enumerate(chunks, 1)

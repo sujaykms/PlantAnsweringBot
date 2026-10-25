@@ -25,6 +25,9 @@ class RouteDecision(BaseModel):
     fallback: bool = False            # True if we widened to all doc indexes
     overridden: bool = False          # True if the user picked the source
     emergency: bool = False           # injury / fire / spill / gas detected in the question
+    unsafe: str = "none"              # none | bypass_safety | falsify_records | sabotage | other_harm
+    injection: bool = False           # prompt-injection / authority-claim attempt
+    physical_work: bool | None = None  # asks to physically work on equipment; None = classifier unavailable
     model: str = ""
     latency_ms: int = 0
 

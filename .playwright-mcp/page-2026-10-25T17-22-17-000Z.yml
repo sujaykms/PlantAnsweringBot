@@ -1,0 +1,30 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - complementary "Conversations" [ref=e3]:
+      - generic [ref=e4]:
+        - button "New chat" [ref=e5]
+        - button "Close sidebar" [ref=e9]
+      - navigation "Past chats" [ref=e12]:
+        - list
+      - generic [ref=e13]:
+        - link "Operator alerts" [ref=e14] [cursor=pointer]:
+          - /url: /operator
+        - button "Toggle light / dark theme" [ref=e15]
+    - generic [ref=e18]:
+      - banner [ref=e19]:
+        - paragraph [ref=e20]: Plant Docs Assistant
+      - main [ref=e21]:
+        - list [ref=e61]:
+          - listitem [ref=e62]:
+            - paragraph [ref=e63]: bleeding on the line, what do I do
+          - listitem [ref=e64]:
+            - status [ref=e71]:
+              - generic [ref=e73]: Finding the right documents…
+      - generic [ref=e44]:
+        - generic [ref=e45]:
+          - textbox "Question" [active] [ref=e46]:
+            - /placeholder: Ask about a procedure, fault code or limit…
+          - button "Stop generating" [ref=e74]
+        - paragraph [ref=e50]: Answers come from plant documents. Check the cited source before safety-critical work.
+  - button "Open Next.js Dev Tools" [ref=e56] [cursor=pointer]
+  - alert [ref=e60]

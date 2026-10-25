@@ -1,0 +1,37 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary "Conversations" [ref=e3]:
+      - generic [ref=e4]:
+        - button "New chat" [ref=e5]
+        - button "Close sidebar" [ref=e9]
+      - navigation "Past chats" [ref=e12]:
+        - list
+      - generic [ref=e13]:
+        - link "Operator alerts" [ref=e14] [cursor=pointer]:
+          - /url: /operator
+        - button "Toggle light / dark theme" [ref=e15]
+    - generic [ref=e18]:
+      - banner [ref=e19]:
+        - paragraph [ref=e20]: Plant Docs Assistant
+      - main [ref=e21]:
+        - generic [ref=e23]:
+          - heading "What do you need to know?" [level=1] [ref=e28]
+          - paragraph [ref=e29]: Ask about safety procedures, equipment maintenance or quality limits.
+          - generic [ref=e30]:
+            - button "What PPE is needed for electrical isolation?" [ref=e31]
+            - button "P-101 shows fault E35" [ref=e32]
+            - button "Torque for P-101 motor mount bolts?" [ref=e33]
+            - button "We found 3 bad welds in a lot of 500 — hold it?" [ref=e34]
+            - button "How do I replace the P-101 mechanical seal?" [ref=e35]
+          - list "Source legend" [ref=e36]:
+            - listitem [ref=e37]: Safety
+            - listitem [ref=e39]: Maintenance
+            - listitem [ref=e41]: Quality
+      - generic [ref=e44]:
+        - generic [ref=e45]:
+          - textbox "Question" [ref=e46]:
+            - /placeholder: Ask about a procedure, fault code or limit…
+          - button "Send" [disabled] [ref=e47]
+        - paragraph [ref=e50]: Answers come from plant documents. Check the cited source before safety-critical work.
+  - button "Open Next.js Dev Tools" [ref=e56] [cursor=pointer]
+  - alert [ref=e60]

@@ -8,6 +8,7 @@ class Settings(BaseSettings):
 
     openrouter_api_key: str = ""
     router_model: str = "qwen/qwen-2.5-7b-instruct"
+    guard_model: str = "google/gemini-2.5-flash-lite"
     extract_model: str = "openai/gpt-4.1-mini"
     answer_model: str = "anthropic/claude-sonnet-5.5"
 

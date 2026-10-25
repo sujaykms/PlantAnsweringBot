@@ -27,6 +27,7 @@ def chat(
     json_schema: dict | None = None,
     temperature: float = 0.0,
     max_tokens: int | None = None,
+    timeout: float | None = None,
 ) -> str:
     """Non-streaming completion. With json_schema, requests structured output."""
     kwargs: dict = {}
@@ -40,6 +41,7 @@ def chat(
         messages=messages,
         temperature=temperature,
         max_tokens=max_tokens,
+        timeout=timeout,
         **kwargs,
     )
     return resp.choices[0].message.content or ""

@@ -66,11 +66,16 @@ def test_forbidden_advice():
 
 
 def test_safety_tie_in():
+    """Whether the question is physical work comes from the nano classifier (decision.physical_work)."""
     ch = [mk()]
     a = "1. Replace the filter [SOP-07 §4.3]."
-    assert not names(verify(a, ch, "How do I replace the compressor filter?", DEC))["safety_tie_in"]
-    assert names(verify(a + " Apply lockout/tagout.", ch, "How do I replace the filter?", DEC))["safety_tie_in"]
-    assert names(verify(a, ch, "What is the torque spec?", DEC))["safety_tie_in"]
+    work = DEC.model_copy(update={"physical_work": True})
+    lookup = DEC.model_copy(update={"physical_work": False})
+    unknown = DEC.model_copy(update={"physical_work": None})
+    assert not names(verify(a, ch, "q", work))["safety_tie_in"]
+    assert names(verify(a + " Apply lockout/tagout.", ch, "q", work))["safety_tie_in"]
+    assert names(verify(a, ch, "q", lookup))["safety_tie_in"]
+    assert names(verify(a, ch, "q", unknown))["safety_tie_in"]  # classifier down: not required
 
 
 # ---- graph ----

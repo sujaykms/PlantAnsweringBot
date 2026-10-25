@@ -1,43 +1,23 @@
 import logging
-import re
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 from pydantic import BaseModel
 
 from app import llm
 from app.config import get_settings
 from app.contracts import DOC_SOURCES, ChatTurn, RouteDecision, RouteLabel, RouteScore
+from app.guards.classify import SafetyClass, classify
 from app.routing.sources import ROUTE_SCHEMA, build_system_prompt
 
 log = logging.getLogger(__name__)
 
-PHYSICAL_VERBS = re.compile(
-    r"\b(replac\w*|remov\w*|open\w*|clear\w*|enter\w*|bypass\w*|repair\w*|disassembl\w*|weld\w*)\b",
-    re.I,
-)
 CLOSE_MARGIN = 0.2
 LOW_CONF = 0.6
 
 
-# Deterministic backstop: obvious emergency language forces emergency=True even if the model misses it.
-EMERGENCY_RE = re.compile(
-    r"\b("
-    r"bleed\w*|blood|burn(?:s|ed|ing|t)?\b|unconscious\w*|passed\s+out|collaps\w*|not\s+breathing|"
-    r"cardiac|heart\s+attack|seizure|amputat\w*|severed|fractur\w*|broken\s+(?:bone|arm|leg)|"
-    r"on\s+fire|fire(?!\s*(?:door|extinguisher|drill|watch|permit|exit|code|rating|retardant))|"
-    r"smok(?:e|ing)\b|flames?|explosi\w*|"
-    r"chemical\s+(?:spill|exposure|splash|leak)|spill(?:ed)?\s+(?:of\s+)?(?:acid|chemical|solvent)|"
-    r"(?:in|into|on)\s+(?:[\w']+\s+){0,2}(?:eyes?|skin)|eye\s+contact|"
-    r"gas\s+(?:leak|alarm|smell)|smell\w*\s+gas|h2s\s+alarm|toxic\s+(?:gas|fumes?)|"
-    r"electrocut\w*|electric(?:al)?\s+shock|shocked|"
-    r"trapped|entrapp\w*|pinned|crushed|caught\s+in|engulf\w*"
-    r")",
-    re.I,
-)
-
-
-def detect_emergency(question: str) -> bool:
-    return bool(EMERGENCY_RE.search(question))
+_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="classify")
+HARMFUL = {"falsify_records", "sabotage", "other_harm"}
 
 
 class _ModelOut(BaseModel):
@@ -69,7 +49,7 @@ def _call_model(model: str, msgs: list[dict]) -> _ModelOut:
     return _ModelOut.model_validate(llm.parse_json(raw))
 
 
-def apply_rules(question: str, routes: list[RouteScore]) -> list[RouteLabel]:
+def apply_rules(routes: list[RouteScore], physical_work: bool = False) -> list[RouteLabel]:
     ranked = sorted(routes, key=lambda r: r.confidence, reverse=True)
     if not ranked or ranked[0].label == "none":
         return []
@@ -80,9 +60,29 @@ def apply_rules(question: str, routes: list[RouteScore]) -> list[RouteLabel]:
     top = docs[0].confidence
     if len(docs) > 1 and (top - docs[1].confidence <= CLOSE_MARGIN or top < LOW_CONF):
         searched.append(docs[1].label)
-    if PHYSICAL_VERBS.search(question) and "safety" not in searched:
+    if physical_work and "safety" not in searched:
         searched.append("safety")
     return searched
+
+
+def _apply_safety(searched: list[RouteLabel], cls: SafetyClass | None) -> list[RouteLabel]:
+    """Fold the classifier's verdict into the routing decision."""
+    if cls is None:
+        return searched
+    if cls.injection or cls.unsafe in HARMFUL:
+        return []  # canned reply, no retrieval (emergencies still get the emergency reply)
+    if cls.unsafe == "bypass_safety" and "safety" not in searched:
+        return [*searched, "safety"]  # answer with the rule and the safe alternative, cited
+    return searched
+
+
+def _flags(cls: SafetyClass | None, router_emergency: bool = False) -> dict:
+    return {
+        "emergency": router_emergency or bool(cls and cls.emergency),
+        "unsafe": cls.unsafe if cls else "none",
+        "injection": bool(cls and cls.injection),
+        "physical_work": cls.physical_work if cls else None,
+    }
 
 
 def route(
@@ -91,16 +91,17 @@ def route(
     override: list[RouteLabel] | None = None,
     model: str | None = None,
 ) -> RouteDecision:
+    cls_future = _pool.submit(classify, question, history)  # nano classifier, parallel to the router
     if override:
+        cls = cls_future.result()
         return RouteDecision(
             routes=[RouteScore(label=l, confidence=1.0) for l in override],
             reason="user override",
             searched=list(override),
             overridden=True,
-            emergency=detect_emergency(question),
+            **_flags(cls),
         )
     model = model or get_settings().router_model
-    backstop = detect_emergency(question)
     t0 = time.perf_counter()
     out: _ModelOut | None = None
     msgs = _messages(question, history)
@@ -110,14 +111,16 @@ def route(
             break
         except Exception as e:
             log.warning("router attempt %d failed: %s", attempt + 1, e)
+    cls = cls_future.result()
     ms = int((time.perf_counter() - t0) * 1000)
     if out is None:
         return RouteDecision(
             routes=[], reason="router failed; searching all sources",
-            searched=list(DOC_SOURCES), fallback=True, model=model, latency_ms=ms,
-            emergency=backstop,
+            searched=_apply_safety(list(DOC_SOURCES), cls), fallback=True, model=model, latency_ms=ms,
+            **_flags(cls),
         )
+    searched = _apply_safety(apply_rules(out.routes, bool(cls and cls.physical_work)), cls)
     return RouteDecision(
-        routes=out.routes, reason=out.reason, searched=apply_rules(question, out.routes),
-        model=model, latency_ms=ms, emergency=out.emergency or backstop,
+        routes=out.routes, reason=out.reason, searched=searched, model=model, latency_ms=ms,
+        **_flags(cls, router_emergency=out.emergency),
     )

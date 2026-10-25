@@ -27,7 +27,7 @@ def _split_sentences(text: str) -> list[str]:
 
 
 # ---------- a. citation validity ----------
-_CITE_RE = re.compile(r"\[([^\[\]§]+?)\s*§\s*([^\[\]]+?)\]")
+_CITE_GROUP_RE = re.compile(r"\[([^\[\]]*§[^\[\]]*)\]")
 _SECNUM_RE = re.compile(r"\d+(?:\.\d+)*")
 
 
@@ -51,26 +51,41 @@ def _title_match(cited: str, c: RetrievedChunk) -> bool:
 
 
 def _sec_match(sec: str, c: RetrievedChunk) -> bool:
+    """One section reference (a number like 3.2, or a name) against one chunk."""
     nums = _chunk_sections(c)
-    want = _SECNUM_RE.findall(sec)
-    if not want:
-        return _norm(sec) in _norm(c.section_path)
-    for w in want:
-        if not any(n == w or n.startswith(w + ".") or w.startswith(n + ".") for n in nums):
-            return False
-    return True
+    if re.fullmatch(r"\d+(?:\.\d+)*", sec):
+        return any(n == sec or n.startswith(sec + ".") or sec.startswith(n + ".") for n in nums)
+    return _norm(sec) in _norm(c.section_path)
+
+
+def parse_citations(answer: str) -> list[tuple[str, list[str]]]:
+    """[Title §3.2] -> ("Title", ["3.2"]). Also handles "[A §4; A §5]", "[A §§3,4]", "[A §4; §5]"."""
+    out: list[tuple[str, list[str]]] = []
+    for m in _CITE_GROUP_RE.finditer(answer):
+        last_title = ""
+        for seg in m.group(1).split(";"):
+            if "§" not in seg:
+                continue
+            title, _, rest = seg.partition("§")
+            title = title.strip() or last_title
+            last_title = title
+            secs = _SECNUM_RE.findall(rest) or [rest.strip(" §,")]
+            out.append((title, secs))
+    return out
 
 
 def check_citations(answer: str, chunks: list[RetrievedChunk], exempt: bool) -> VerificationCheck:
-    cites = _CITE_RE.findall(answer)
+    cites = parse_citations(answer)
     if not cites:
         if exempt:
             return VerificationCheck(name="citation_validity", passed=True, detail="no citations needed")
         return VerificationCheck(name="citation_validity", passed=False, detail="answer has no citations")
     bad = []
-    for title, sec in cites:
-        if not any(_title_match(title, c) and _sec_match(sec, c) for c in chunks):
-            bad.append(f"[{title.strip()} §{sec.strip()}]")
+    for title, secs in cites:
+        matching = [c for c in chunks if _title_match(title, c)]
+        # every cited section must exist in some retrieved chunk of that document
+        if not matching or not all(any(_sec_match(s, c) for c in matching) for s in secs):
+            bad.append(f"[{title} §{', '.join(secs)}]")
     if bad:
         return VerificationCheck(
             name="citation_validity",
@@ -139,7 +154,7 @@ def _pairs(text: str) -> set[tuple[str, str]]:
 
 
 def check_numbers(answer: str, chunks: list[RetrievedChunk], exempt: bool) -> VerificationCheck:
-    claimed = _pairs(_CITE_RE.sub(" ", answer))
+    claimed = _pairs(_CITE_GROUP_RE.sub(" ", answer))
     if not claimed:
         return VerificationCheck(name="numeric_grounding", passed=True, detail="no figures with units")
     ctx = "\n".join(c.content for c in chunks)
@@ -197,17 +212,12 @@ def check_forbidden(answer: str) -> VerificationCheck:
 
 
 # ---------- d. safety tie-in ----------
-_PHYSICAL_RE = re.compile(
-    r"\b(replac\w*|remov\w*|open\w*|clear\w*|enter\w*|bypass\w*|repair\w*|disassembl\w*|weld\w*|"
-    r"install\w*|adjust\w*|servic\w*|chang\w*|unjam\w*|jam\w*|tighten\w*|clean\w*|lubricat\w*|"
-    r"swap\w*|unclog\w*|rebuild\w*|reassembl\w*|grease\w*)\b",
-    re.I,
-)
 _SAFETY_RE = re.compile(r"lock-?\s?out|tag-?\s?out|\bLOTO\b|safety\s*:", re.I)
 
 
-def check_safety_tie_in(answer: str, question: str, exempt: bool) -> VerificationCheck:
-    if exempt or not _PHYSICAL_RE.search(question):
+def check_safety_tie_in(answer: str, physical_work: bool | None, exempt: bool) -> VerificationCheck:
+    """physical_work comes from the nano classifier on the question (None = unknown -> not required)."""
+    if exempt or not physical_work:
         return VerificationCheck(name="safety_tie_in", passed=True, detail="not required")
     if _SAFETY_RE.search(answer):
         return VerificationCheck(name="safety_tie_in", passed=True, detail="safety/lockout line present")
@@ -225,6 +235,6 @@ def verify(
         check_citations(answer, chunks, exempt),
         check_numbers(answer, chunks, exempt),
         check_forbidden(answer),
-        check_safety_tie_in(answer, question, exempt),
+        check_safety_tie_in(answer, decision.physical_work if decision else None, exempt),
     ]
     return Verification(passed=all(c.passed for c in checks), checks=checks)

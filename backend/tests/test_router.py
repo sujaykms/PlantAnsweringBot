@@ -45,9 +45,19 @@ def test_second_label_when_top_low(mock_chat):
     assert router.route("something vague").searched == ["quality", "safety"]
 
 
-def test_physical_verb_adds_safety(mock_chat):
+def test_physical_work_adds_safety(mock_chat, monkeypatch):
+    from app.guards.classify import SafetyClass
+
+    monkeypatch.setattr(router, "classify", lambda *a, **k: SafetyClass(physical_work=True))
     mock_chat(fake([("maintenance", 0.95)]))
-    assert router.route("How do I replace the compressor filter?").searched == ["maintenance", "safety"]
+    d = router.route("How do I replace the compressor filter?")
+    assert d.searched == ["maintenance", "safety"] and d.physical_work is True
+
+
+def test_spec_lookup_does_not_add_safety(mock_chat):
+    mock_chat(fake([("quality", 0.95)]))
+    d = router.route("What are the weld leg size limits for BRK-200?")
+    assert d.searched == ["quality"] and d.physical_work is False
 
 
 def test_none_alone_searches_nothing(mock_chat):

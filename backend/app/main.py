@@ -5,12 +5,13 @@ import logging
 from contextlib import asynccontextmanager
 from uuid import uuid4
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
 from starlette.concurrency import iterate_in_threadpool, run_in_threadpool
 
 from app import answer, embeddings, emergency, graph, store
+from app.guards.input import InputRejected, RateLimiter, sanitize_history, validate_message
 from app.contracts import ChatRequest, DoneEvent, SourcesEvent, StatusEvent, TokenEvent
 
 log = logging.getLogger(__name__)
@@ -26,6 +27,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Plant Docs Q&A", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 app.include_router(emergency.router)
+rate_limiter = RateLimiter(max_requests=20, window_s=60)
 
 
 def _status(stage: str) -> dict:
@@ -46,7 +48,14 @@ def health() -> dict:
 
 
 @app.post("/chat")
-async def chat(req: ChatRequest):
+async def chat(req: ChatRequest, request: Request):
+    if not rate_limiter.check(request.client.host if request.client else "unknown"):
+        raise HTTPException(status_code=429, detail="Too many requests — please wait a moment.")
+    try:
+        req.message = validate_message(req.message)
+    except InputRejected as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    req.history = sanitize_history(req.history)
     g = app.state.graph
     # History: request-passed (the checkpoint stores per-thread state for inspection/resume).
     cid = req.conversation_id or uuid4()

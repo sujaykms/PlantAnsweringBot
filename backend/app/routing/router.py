@@ -19,9 +19,31 @@ CLOSE_MARGIN = 0.2
 LOW_CONF = 0.6
 
 
+# Deterministic backstop: obvious emergency language forces emergency=True even if the model misses it.
+EMERGENCY_RE = re.compile(
+    r"\b("
+    r"bleed\w*|blood|burn(?:s|ed|ing|t)?\b|unconscious\w*|passed\s+out|collaps\w*|not\s+breathing|"
+    r"cardiac|heart\s+attack|seizure|amputat\w*|severed|fractur\w*|broken\s+(?:bone|arm|leg)|"
+    r"on\s+fire|fire(?!\s*(?:door|extinguisher|drill|watch|permit|exit|code|rating|retardant))|"
+    r"smok(?:e|ing)\b|flames?|explosi\w*|"
+    r"chemical\s+(?:spill|exposure|splash|leak)|spill(?:ed)?\s+(?:of\s+)?(?:acid|chemical|solvent)|"
+    r"(?:in|into|on)\s+(?:[\w']+\s+){0,2}(?:eyes?|skin)|eye\s+contact|"
+    r"gas\s+(?:leak|alarm|smell)|smell\w*\s+gas|h2s\s+alarm|toxic\s+(?:gas|fumes?)|"
+    r"electrocut\w*|electric(?:al)?\s+shock|shocked|"
+    r"trapped|entrapp\w*|pinned|crushed|caught\s+in|engulf\w*"
+    r")",
+    re.I,
+)
+
+
+def detect_emergency(question: str) -> bool:
+    return bool(EMERGENCY_RE.search(question))
+
+
 class _ModelOut(BaseModel):
     routes: list[RouteScore]
     reason: str = ""
+    emergency: bool = False
 
 
 def _messages(question: str, history: list[ChatTurn] | None) -> list[dict]:
@@ -75,8 +97,10 @@ def route(
             reason="user override",
             searched=list(override),
             overridden=True,
+            emergency=detect_emergency(question),
         )
     model = model or get_settings().router_model
+    backstop = detect_emergency(question)
     t0 = time.perf_counter()
     out: _ModelOut | None = None
     msgs = _messages(question, history)
@@ -91,8 +115,9 @@ def route(
         return RouteDecision(
             routes=[], reason="router failed; searching all sources",
             searched=list(DOC_SOURCES), fallback=True, model=model, latency_ms=ms,
+            emergency=backstop,
         )
     return RouteDecision(
         routes=out.routes, reason=out.reason, searched=apply_rules(question, out.routes),
-        model=model, latency_ms=ms,
+        model=model, latency_ms=ms, emergency=out.emergency or backstop,
     )

@@ -21,7 +21,7 @@ export function useChatStream() {
     setMessages([
       ...prior,
       { id: uid(), role: "user", content: message },
-      { id: aid, role: "assistant", content: "", streaming: true },
+      { id: aid, role: "assistant", content: "", streaming: true, question: message, stage: "routing" },
     ]);
     const patch = (f: (m: ChatMessage) => ChatMessage) =>
       setMessages((ms) => ms.map((m) => (m.id === aid ? f(m) : m)));
@@ -46,12 +46,20 @@ export function useChatStream() {
         events = parseSSE(res.body);
       }
       for await (const ev of events) {
-        if (ev.event === "route") patch((m) => ({ ...m, route: ev.data }));
+        if (ev.event === "status") patch((m) => ({ ...m, stage: ev.data.stage }));
+        else if (ev.event === "route") patch((m) => ({ ...m, route: ev.data }));
         else if (ev.event === "sources") patch((m) => ({ ...m, sources: ev.data.chunks }));
         else if (ev.event === "token") patch((m) => ({ ...m, content: m.content + ev.data.text }));
         else if (ev.event === "done") {
           convId.current = ev.data.conversation_id;
-          patch((m) => ({ ...m, streaming: false, notFound: ev.data.not_found }));
+          patch((m) => ({
+            ...m,
+            streaming: false,
+            notFound: ev.data.not_found,
+            conversationId: ev.data.conversation_id,
+            messageId: ev.data.message_id,
+            verification: ev.data.verification ?? null,
+          }));
         } else if (ev.event === "error") {
           patch((m) => ({ ...m, streaming: false, error: ev.data.message }));
         }

@@ -36,7 +36,23 @@ EXAMPLES: list[tuple[str, list[str]]] = [
     ("Parts have burrs since the die change", ["quality", "maintenance"]),
     ("Can I bypass the light curtain to clear a jam?", ["safety"]),
     ("What's on the cafeteria menu?", ["none"]),
+    ("Someone is bleeding badly from the hand, what do I do?", ["safety"]),
+    ("There's smoke coming from the MCC panel", ["safety", "maintenance"]),
+    ("Acid splashed into a coworker's eyes", ["safety"]),
+    ("Gas alarm just went off in the pump room", ["safety"]),
+    ("A guy got electrocuted at the junction box", ["safety"]),
+    ("Operator is trapped inside the baler", ["safety"]),
 ]
+# questions (from EXAMPLES) that must set emergency=True; all others must be False
+EMERGENCY_EXAMPLES: set[str] = {
+    "Someone got solvent in their eye, what now?",
+    "Someone is bleeding badly from the hand, what do I do?",
+    "There's smoke coming from the MCC panel",
+    "Acid splashed into a coworker's eyes",
+    "Gas alarm just went off in the pump room",
+    "A guy got electrocuted at the junction box",
+    "Operator is trapped inside the baler",
+}
 # extra labels tolerated (not required) for a given example
 EXTRA_OK: dict[str, set[str]] = {"Can I bypass the light curtain to clear a jam?": {"maintenance"}}
 
@@ -48,12 +64,17 @@ def build_system_prompt() -> str:
         rs = ",".join(
             f'{{"label":"{l}","confidence":{0.9 if i == 0 else 0.6}}}' for i, l in enumerate(ls)
         )
-        shots.append(f'Q: {q}\nA: {{"routes":[{rs}],"reason":"..."}}')
+        em = "true" if q in EMERGENCY_EXAMPLES else "false"
+        shots.append(f'Q: {q}\nA: {{"routes":[{rs}],"reason":"...","emergency":{em}}}')
     return (
         "You route questions from plant floor supervisors to documentation sources.\n"
         f"Labels:\n{labels}\n{RULE}\n"
         "Return ONLY a JSON object: "
-        '{"routes":[{"label":"safety|maintenance|quality|none","confidence":0..1}],"reason":"short"}. '
+        '{"routes":[{"label":"safety|maintenance|quality|none","confidence":0..1}],"reason":"short","emergency":true|false}. '
+        "Set emergency=true ONLY when the question describes a situation happening now that endangers people: "
+        "injury, bleeding, burn, unconscious person, fire or smoke, chemical spill/exposure/eye contact, "
+        "gas leak or gas alarm, electrocution, someone trapped. Emergency questions are still routed normally "
+        "(usually safety). Planned-work or general-information questions are emergency=false.\n"
         "List the 1-2 most relevant labels, highest confidence first. Use 'none' alone for off-topic.\n"
         "Examples:\n" + "\n".join(shots)
     )
@@ -75,7 +96,8 @@ ROUTE_SCHEMA = {
             },
         },
         "reason": {"type": "string"},
+        "emergency": {"type": "boolean"},
     },
-    "required": ["routes", "reason"],
+    "required": ["routes", "reason", "emergency"],
     "additionalProperties": False,
 }

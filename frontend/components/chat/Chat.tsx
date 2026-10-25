@@ -9,6 +9,10 @@ import { cn } from "@/lib/utils";
 import { Markdown } from "./Markdown";
 import { RouteBadges } from "./RouteBadges";
 import { SourceCards } from "./SourceCards";
+import { EmergencyBanner } from "./EmergencyBanner";
+import { StageIndicator } from "./StageIndicator";
+import { VerificationNotice } from "./Verification";
+import { citeMatches } from "./cite";
 import { SOURCE_STYLE } from "./source";
 
 const STARTERS = [
@@ -20,8 +24,20 @@ const STARTERS = [
 ];
 
 function Assistant({ m, onRetry }: { m: ChatMessage; onRetry: () => void }) {
+  const [focus, setFocus] = useState<{ ids: string[]; n: number } | null>(null);
+  const onCite = (cite: string) => {
+    const ids = (m.sources ?? []).filter((c) => citeMatches(cite, c)).map((c) => c.id);
+    if (ids.length) setFocus((f) => ({ ids, n: (f?.n ?? 0) + 1 }));
+  };
   return (
     <div className="max-w-3xl">
+      {m.route?.emergency && (
+        <EmergencyBanner
+          question={m.question ?? ""}
+          conversationId={m.conversationId}
+          messageId={m.messageId}
+        />
+      )}
       {m.route && <RouteBadges route={m.route} />}
       {m.notFound ? (
         <div className="mt-1 flex gap-3 rounded-xl border-2 border-dashed border-hazard bg-hazard/10 p-4">
@@ -35,10 +51,11 @@ function Assistant({ m, onRetry }: { m: ChatMessage; onRetry: () => void }) {
           </div>
         </div>
       ) : m.content ? (
-        <Markdown text={m.content} />
+        <Markdown text={m.content} onCite={onCite} />
       ) : (
-        m.streaming && <p className="mt-1 animate-pulse text-muted-foreground">Searching documents…</p>
+        m.streaming && <StageIndicator stage={m.stage ?? "routing"} />
       )}
+      {!m.streaming && !m.error && !m.notFound && <VerificationNotice v={m.verification} />}
       {m.streaming && m.content && (
         <span className="ml-1 inline-block h-4 w-2 animate-pulse bg-foreground align-middle" />
       )}
@@ -54,7 +71,9 @@ function Assistant({ m, onRetry }: { m: ChatMessage; onRetry: () => void }) {
           </Button>
         </div>
       )}
-      {m.sources && <SourceCards sources={m.sources} />}
+      {m.sources && (
+        <SourceCards sources={m.sources} answer={m.content} scope={m.id} focus={focus} />
+      )}
     </div>
   );
 }

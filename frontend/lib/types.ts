@@ -7,9 +7,9 @@ export interface RouteDecision {
   searched: RouteLabel[];
   fallback: boolean;
   overridden: boolean;
-  emergency?: boolean;
   model: string;
   latency_ms: number;
+  emergency?: boolean;
 }
 
 export interface RetrievedChunk {
@@ -51,6 +51,28 @@ export interface DoneEvent {
   verification?: Verification | null;
 }
 
+export interface NotifyRequest {
+  conversation_id?: string;
+  message_id?: string;
+  question: string;
+  location?: string;
+}
+
+export interface NotifyResponse {
+  alert_id: string;
+  status: "open";
+  created_at: string;
+}
+
+export interface EmergencyAlert {
+  id: string;
+  created_at: string;
+  question: string;
+  location: string | null;
+  status: "open" | "acknowledged";
+  acknowledged_at: string | null;
+}
+
 export type StreamEvent =
   | { event: "status"; data: { stage: Stage } }
   | { event: "route"; data: RouteDecision }
@@ -68,4 +90,9 @@ export interface ChatMessage {
   notFound?: boolean;
   error?: string;
   streaming?: boolean;
+  stage?: Stage;
+  question?: string;
+  conversationId?: string;
+  messageId?: string;
+  verification?: Verification | null;
 }

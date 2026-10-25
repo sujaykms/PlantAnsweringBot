@@ -16,6 +16,7 @@ dependencies = [
     "pydantic-settings>=2.16.1",
     "pymupdf>=2.0",
     "sentence-transformers>=6.2.0",
+    "sqlglot>=30.24.0",
     "sse-starlette>=3.5.1",
     "uvicorn[standard]>=0.54.0",
 ]

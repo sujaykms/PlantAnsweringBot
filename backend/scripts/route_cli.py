@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.routing.router import route  # noqa: E402
-from app.routing.sources import EXAMPLES  # noqa: E402
+from app.routing.sources import EMERGENCY_EXAMPLES, EXAMPLES  # noqa: E402
 
 
 def main() -> None:
@@ -15,6 +15,7 @@ def main() -> None:
     ap.add_argument("--model", default=None)
     args = ap.parse_args()
     ok = 0
+    em_tp = em_fp = 0
     lat = []
     for q, expected in EXAMPLES:
         d = route(q, model=args.model)
@@ -24,8 +25,13 @@ def main() -> None:
         good = got[0] in expected and set(expected) <= set(got)
         ok += good
         lat.append(d.latency_ms)
+        if q in EMERGENCY_EXAMPLES:
+            em_tp += d.emergency
+        else:
+            em_fp += d.emergency
         flag = "OK " if good else "BAD"
         print(f"{flag} {q[:55]:55} pred={','.join(got):24} exp={'+'.join(expected)}{' [fallback]' if d.fallback else ''}")
+    print(f"emergency recall={em_tp}/{len(EMERGENCY_EXAMPLES)} false_positives={em_fp}")
     print(f"\nmodel={args.model or d.model} accuracy={ok}/{len(EXAMPLES)} ({ok / len(EXAMPLES):.0%}) avg_latency={sum(lat) / len(lat):.0f}ms")
 
 

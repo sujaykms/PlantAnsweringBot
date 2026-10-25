@@ -1,4 +1,4 @@
-import type { StreamEvent, RetrievedChunk } from "./types";
+import type { StreamEvent, RetrievedChunk, Verification } from "./types";
 
 const sleep = (ms: number, signal?: AbortSignal) =>
   new Promise<void>((res, rej) => {
@@ -43,6 +43,16 @@ const chunks: RetrievedChunk[] = [
     score: 0.64,
     rerank_score: 0.61,
   },
+  {
+    id: "c4",
+    source: "quality",
+    title: "QS-12 Weld Inspection",
+    section_path: "QS-12 > 2 Visual Criteria",
+    page: 3,
+    content: "Visual weld inspection: no undercut deeper than 0.5 mm; no surface porosity.",
+    score: 0.41,
+    rerank_score: 0.38,
+  },
 ];
 
 const answer = `For electrical isolation you need the following PPE [SOP-07 §3.2]:
@@ -53,11 +63,18 @@ const answer = `For electrical isolation you need the following PPE [SOP-07 §3.
 
 Always **lock out the starter** and verify zero voltage before touching conductors [SOP-07 §4]. For the P-101 motor, isolate at MCC-2 [P-101 Manual §4.3].`;
 
+
+const emergencyAnswer = `Apply firm direct pressure to the wound with a clean cloth and keep the person still [SOP-07 §3.2]. Do not restart or approach the equipment until it is isolated [SOP-07 §4].`;
+
 export async function* mockStream(
   message: string,
   signal?: AbortSignal,
 ): AsyncGenerator<StreamEvent> {
-  await sleep(300, signal);
+  const emergency = /bleeding|fire/i.test(message);
+  const verifyFail = /verifyfail/i.test(message);
+  const notFound = /zzz/i.test(message);
+  yield { event: "status", data: { stage: "routing" } };
+  await sleep(700, signal);
   yield {
     event: "route",
     data: {
@@ -71,24 +88,45 @@ export async function* mockStream(
       overridden: false,
       model: "mock-router",
       latency_ms: 240,
+      emergency,
     },
   };
-  await sleep(400, signal);
+  yield { event: "status", data: { stage: "retrieving" } };
+  await sleep(900, signal);
   yield { event: "sources", data: { chunks } };
-  if (/zzz/i.test(message)) {
+  yield { event: "status", data: { stage: "generating" } };
+  await sleep(1200, signal);
+  yield { event: "status", data: { stage: "verifying" } };
+  await sleep(1000, signal);
+  const done = (not_found: boolean, verification: Verification | null): StreamEvent => ({
+    event: "done",
+    data: {
+      conversation_id: "mock-conv",
+      message_id: crypto.randomUUID(),
+      not_found,
+      verification,
+    },
+  });
+  const ok = (regenerated = false, replaced = false): Verification => ({
+    passed: !replaced,
+    checks: [],
+    regenerated,
+    replaced,
+  });
+  if (notFound) {
     yield { event: "token", data: { text: "I could not find this in the plant documents." } };
-    yield {
-      event: "done",
-      data: { conversation_id: "mock-conv", message_id: crypto.randomUUID(), not_found: true },
-    };
+    yield done(true, null);
     return;
   }
-  for (const t of answer.match(/\S+\s*|\n+/g) ?? []) {
+  const text = emergency ? emergencyAnswer : answer;
+  for (const t of text.match(/\S+\s*|\n+/g) ?? []) {
     await sleep(35, signal);
     yield { event: "token", data: { text: t } };
   }
-  yield {
-    event: "done",
-    data: { conversation_id: "mock-conv", message_id: crypto.randomUUID(), not_found: false },
-  };
+  yield done(
+    false,
+    verifyFail
+      ? { passed: false, checks: [{ name: "numeric_grounding", passed: false, detail: "8 cal/cm² not found" }], regenerated: true, replaced: false }
+      : ok(/regen/i.test(message)),
+  );
 }

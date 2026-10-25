@@ -9,6 +9,7 @@ export interface RouteDecision {
   overridden: boolean;
   model: string;
   latency_ms: number;
+  emergency?: boolean;
 }
 
 export interface RetrievedChunk {
@@ -28,13 +29,52 @@ export interface ChatTurn {
   content: string;
 }
 
+export type Stage = "routing" | "retrieving" | "generating" | "verifying";
+
+export interface VerificationCheck {
+  name: string;
+  passed: boolean;
+  detail: string;
+}
+
+export interface Verification {
+  passed: boolean;
+  checks: VerificationCheck[];
+  regenerated: boolean;
+  replaced: boolean;
+}
+
 export interface DoneEvent {
   conversation_id: string;
   message_id: string;
   not_found: boolean;
+  verification?: Verification | null;
+}
+
+export interface NotifyRequest {
+  conversation_id?: string;
+  message_id?: string;
+  question: string;
+  location?: string;
+}
+
+export interface NotifyResponse {
+  alert_id: string;
+  status: "open";
+  created_at: string;
+}
+
+export interface EmergencyAlert {
+  id: string;
+  created_at: string;
+  question: string;
+  location: string | null;
+  status: "open" | "acknowledged";
+  acknowledged_at: string | null;
 }
 
 export type StreamEvent =
+  | { event: "status"; data: { stage: Stage } }
   | { event: "route"; data: RouteDecision }
   | { event: "sources"; data: { chunks: RetrievedChunk[] } }
   | { event: "token"; data: { text: string } }
@@ -50,4 +90,9 @@ export interface ChatMessage {
   notFound?: boolean;
   error?: string;
   streaming?: boolean;
+  stage?: Stage;
+  question?: string;
+  conversationId?: string;
+  messageId?: string;
+  verification?: Verification | null;
 }

@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1 };
 
-const themeScript = `(function(){var m=matchMedia('(prefers-color-scheme: dark)');function a(){document.documentElement.classList.toggle('dark',m.matches)}a();m.addEventListener('change',a)})()`;
+const themeScript = `(function(){var d=document.documentElement,m=matchMedia('(prefers-color-scheme: dark)');function s(){try{return localStorage.getItem('theme')}catch(e){return null}}function a(){var t=s();d.classList.toggle('dark',t?t==='dark':m.matches)}a();m.addEventListener('change',a)})()`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
@@ -21,7 +21,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="h-full flex flex-col">
+      <body className="h-full">
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         {children}
       </body>

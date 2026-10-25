@@ -102,5 +102,12 @@ export function useChatStream() {
     setMessages([]);
   }, []);
 
-  return { messages, streaming, send, retry, stop, reset };
+  const restore = useCallback((msgs: ChatMessage[], cid: string | null) => {
+    abort.current?.abort();
+    convId.current = cid;
+    setMessages(msgs);
+  }, []);
+  const getConvId = useCallback(() => convId.current, []);
+
+  return { messages, streaming, send, retry, stop, reset, restore, getConvId };
 }

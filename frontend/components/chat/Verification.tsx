@@ -7,9 +7,9 @@ export function VerificationNotice({ v }: { v: Verification | null | undefined }
     return (
       <div
         role="status"
-        className="mt-3 flex gap-3 rounded-xl border-2 border-hazard bg-hazard/15 p-3 text-sm"
+        className="mt-3 flex gap-2.5 rounded-xl border border-hazard/70 bg-hazard/10 px-3 py-2.5 text-sm"
       >
-        <TriangleAlert className="mt-0.5 size-5 shrink-0" />
+        <TriangleAlert className="mt-0.5 size-4 shrink-0" />
         <p>
           <span className="font-semibold">Couldn&apos;t verify this answer against the documents</span> —
           check the sources below.
@@ -19,7 +19,7 @@ export function VerificationNotice({ v }: { v: Verification | null | undefined }
   }
   return (
     <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-      <CheckCircle2 className="size-3.5 text-safety" /> Citations verified
+      <CheckCircle2 className="size-3.5 text-quality" /> Citations verified
     </p>
   );
 }

@@ -24,6 +24,7 @@ class RouteDecision(BaseModel):
     searched: list[RouteLabel]        # labels actually queried
     fallback: bool = False            # True if we widened to all doc indexes
     overridden: bool = False          # True if the user picked the source
+    emergency: bool = False           # injury / fire / spill / gas detected in the question
     model: str = ""
     latency_ms: int = 0
 
@@ -82,6 +83,8 @@ class FeedbackRequest(BaseModel):
 
 
 # ---- SSE events (event name -> data payload) ----
+# event: status   data: StatusEvent        (before each stage; answers are BUFFERED and verified,
+#                                           so `token` events are emitted only after verification)
 # event: route    data: RouteDecision
 # event: sources  data: {"chunks": [RetrievedChunk]}
 # event: analytics_result data: AnalyticsResult          (Phase 3)
@@ -96,7 +99,25 @@ class TokenEvent(BaseModel):
     text: str
 
 
+class StatusEvent(BaseModel):
+    stage: Literal["routing", "retrieving", "generating", "verifying"]
+
+
+class VerificationCheck(BaseModel):
+    name: str                         # citation_validity | numeric_grounding | forbidden_advice | safety_tie_in
+    passed: bool
+    detail: str = ""
+
+
+class Verification(BaseModel):
+    passed: bool
+    checks: list[VerificationCheck] = []
+    regenerated: bool = False         # answer was regenerated once after a failed check
+    replaced: bool = False            # answer was replaced with the not-found fallback
+
+
 class DoneEvent(BaseModel):
     conversation_id: UUID
     message_id: UUID
     not_found: bool = False
+    verification: Verification | None = None

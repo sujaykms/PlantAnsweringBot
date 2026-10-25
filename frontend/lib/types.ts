@@ -7,6 +7,7 @@ export interface RouteDecision {
   searched: RouteLabel[];
   fallback: boolean;
   overridden: boolean;
+  emergency?: boolean;
   model: string;
   latency_ms: number;
 }
@@ -28,13 +29,30 @@ export interface ChatTurn {
   content: string;
 }
 
+export type Stage = "routing" | "retrieving" | "generating" | "verifying";
+
+export interface VerificationCheck {
+  name: string;
+  passed: boolean;
+  detail: string;
+}
+
+export interface Verification {
+  passed: boolean;
+  checks: VerificationCheck[];
+  regenerated: boolean;
+  replaced: boolean;
+}
+
 export interface DoneEvent {
   conversation_id: string;
   message_id: string;
   not_found: boolean;
+  verification?: Verification | null;
 }
 
 export type StreamEvent =
+  | { event: "status"; data: { stage: Stage } }
   | { event: "route"; data: RouteDecision }
   | { event: "sources"; data: { chunks: RetrievedChunk[] } }
   | { event: "token"; data: { text: string } }

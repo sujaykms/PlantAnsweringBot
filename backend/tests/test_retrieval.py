@@ -93,9 +93,9 @@ def client(monkeypatch):
     monkeypatch.setattr(router, "route", lambda q, h=None, o=None: dec.model_copy(deep=True))
     monkeypatch.setattr(retrieval, "hybrid_search", lambda q, s, k: [chunk(s[0], None)])
     monkeypatch.setattr(embeddings, "rerank", lambda q, p: [3.0] * len(p))
-    monkeypatch.setattr(answer.llm, "chat_stream", lambda m, msgs: iter(["Hello ", "world"]))
+    monkeypatch.setattr(answer.llm, "chat_stream", lambda m, msgs: iter(["Wear gloves ", "[safety doc §1]."]))
     cid, mid = uuid.uuid4(), uuid.uuid4()
-    monkeypatch.setattr(store, "save_turn", lambda *a: (cid, mid))
+    monkeypatch.setattr(store, "save_turn", lambda *a, **k: (cid, mid))
     with TestClient(main.app) as c:
         yield c
 
@@ -117,9 +117,12 @@ def test_health(client):
 def test_chat_event_order(client):
     r = client.post("/chat", json={"message": "What PPE?"})
     evs = events(r)
-    assert [e for e, _ in evs] == ["route", "sources", "token", "token", "done"]
-    assert evs[0][1]["searched"] == ["safety"]
-    assert len(evs[1][1]["chunks"]) == 1
+    kinds = [e for e, _ in evs if e != "status"]
+    assert kinds[:2] == ["route", "sources"] and kinds[-1] == "done" and set(kinds[2:-1]) == {"token"}
+    assert [d["stage"] for e, d in evs if e == "status"] == ["routing", "retrieving", "generating", "verifying"]
+    assert dict(evs)["route"]["searched"] == ["safety"]
+    assert len(dict(evs)["sources"]["chunks"]) == 1
+    assert evs[-1][1]["verification"]["passed"] is True
     assert evs[-1][1]["not_found"] is False
 
 
@@ -127,8 +130,9 @@ def test_chat_none_route_canned(client, monkeypatch):
     dec = RouteDecision(routes=[RouteScore(label="none", confidence=0.9)], searched=[])
     monkeypatch.setattr(router, "route", lambda q, h=None, o=None: dec)
     evs = events(client.post("/chat", json={"message": "menu?"}))
-    assert evs[2][1]["text"] == answer.NONE_REPLY
-    assert [e for e, _ in evs] == ["route", "sources", "token", "done"]
+    evs = [x for x in evs if x[0] != "status"]
+    assert "".join(d["text"] for e, d in evs if e == "token") == answer.NONE_REPLY
+    assert evs[0][0] == "route" and evs[1][0] == "sources" and evs[-1][0] == "done"
     assert evs[-1][1]["not_found"] is True
 
 

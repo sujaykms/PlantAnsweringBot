@@ -1,7 +1,8 @@
 """LangGraph orchestration of /chat (everything up to, not including, answer-token streaming).
 
-route -> [canned -> END] | Send x N retrieve_source -> grade -> (rewrite_query -> Send x N ...) | END
-Token streaming stays outside the graph (main.py uses answer.stream_answer).
+route -> [canned -> END] | Send x N retrieve_source -> grade -> (rewrite_query -> Send x N ...)
+grade -> not_found -> END | generate -> verify -> (generate once more, strict) -> END
+The answer is BUFFERED and verified in-graph; main.py only chunks the final text into token events.
 """
 
 import logging
@@ -12,11 +13,13 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import Send
 
 from app import answer, embeddings, llm, retrieval
+from app.guards import output as guard
 from app.config import get_settings
 from app.contracts import (
     DOC_SOURCES,
     ChatTurn,
     RetrievedChunk,
+    Verification,
     RouteDecision,
     RouteLabel,
 )
@@ -44,7 +47,10 @@ class ChatState(TypedDict, total=False):
     attempts: int
     rewritten_query: str | None
     not_found: bool
-    answer: str | None  # only set for canned replies
+    answer: str | None  # canned reply, or the buffered (verified) answer
+    verification: Verification | None
+    gen_attempts: int
+    retry: bool
 
 
 # ---- nodes ----
@@ -66,7 +72,50 @@ def _fan_out(state: ChatState) -> list[Send]:
 
 
 def canned_node(state: ChatState) -> dict:
-    return {"answer": answer.canned_reply(state["decision"], True), "not_found": True, "chunks": []}
+    return {
+        "answer": answer.canned_reply(state["decision"], True),
+        "not_found": True,
+        "chunks": [],
+        "verification": Verification(passed=True),
+    }
+
+
+def not_found_node(state: ChatState) -> dict:
+    return {
+        "answer": answer.canned_reply(state["decision"], True),
+        "verification": Verification(passed=True),
+    }
+
+
+def generate_node(state: ChatState) -> dict:
+    n = state.get("gen_attempts", 0) + 1
+    text = answer.generate(
+        state["question"], state.get("chunks") or [], state["decision"], state.get("history"), strict=n > 1
+    )
+    return {"answer": text, "gen_attempts": n, "retry": False}
+
+
+def verify_node(state: ChatState) -> dict:
+    v = guard.verify(state.get("answer") or "", state.get("chunks") or [], state["question"], state["decision"])
+    n = state.get("gen_attempts", 1)
+    v.regenerated = n > 1
+    if v.passed:
+        return {"verification": v, "retry": False}
+    if n < 2:
+        log.info("verification failed (%s); regenerating", [c.name for c in v.checks if not c.passed])
+        return {"verification": v, "retry": True}
+    log.warning("verification failed twice (%s); replacing answer", [c.name for c in v.checks if not c.passed])
+    v.replaced = True
+    return {
+        "verification": v,
+        "retry": False,
+        "answer": answer.NOT_FOUND_REPLY,
+        "not_found": True,
+    }
+
+
+def after_verify(state: ChatState) -> str:
+    return "generate" if state.get("retry") else END
 
 
 def retrieve_source_node(payload: dict) -> dict:
@@ -102,7 +151,7 @@ def grade_node(state: ChatState) -> dict:
 def after_grade(state: ChatState) -> str:
     if retrieval._weak(state.get("chunks") or []) and state.get("attempts", 0) < MAX_ATTEMPTS:
         return "rewrite_query"
-    return END
+    return "not_found_reply" if state.get("not_found") else "generate"
 
 
 _REWRITE_PROMPT = (
@@ -143,7 +192,13 @@ def build_graph(checkpointer=None):
     g.add_conditional_edges("route", after_route, ["canned", "retrieve_source"])
     g.add_edge("canned", END)
     g.add_edge("retrieve_source", "grade")
-    g.add_conditional_edges("grade", after_grade, ["rewrite_query", END])
+    g.add_node("not_found_reply", not_found_node)
+    g.add_node("generate", generate_node)
+    g.add_node("verify", verify_node)
+    g.add_conditional_edges("grade", after_grade, ["rewrite_query", "not_found_reply", "generate"])
+    g.add_edge("not_found_reply", END)
+    g.add_edge("generate", "verify")
+    g.add_conditional_edges("verify", after_verify, ["generate", END])
     g.add_conditional_edges("rewrite_query", _fan_out, ["retrieve_source"])
     return g.compile(checkpointer=checkpointer or MemorySaver())
 
@@ -181,4 +236,7 @@ def initial_input(question: str, history: list[ChatTurn], override) -> dict:
         "rewritten_query": None,
         "not_found": False,
         "answer": None,
+        "verification": None,
+        "gen_attempts": 0,
+        "retry": False,
     }

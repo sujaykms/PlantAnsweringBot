@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
 from starlette.concurrency import iterate_in_threadpool, run_in_threadpool
 
-from app import answer, embeddings, graph, store
+from app import answer, embeddings, emergency, graph, store
 from app.contracts import ChatRequest, DoneEvent, SourcesEvent, StatusEvent, TokenEvent
 
 log = logging.getLogger(__name__)
@@ -25,6 +25,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Plant Docs Q&A", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app.include_router(emergency.router)
 
 
 def _status(stage: str) -> dict:

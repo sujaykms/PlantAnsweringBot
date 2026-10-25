@@ -125,7 +125,8 @@ def rewrite_node(state: ChatState) -> dict:
         log.warning("rewrite failed: %s", e)
         rewritten = q
     d = state["decision"].model_copy(deep=True)
-    if set(d.searched) != set(DOC_SOURCES):  # final attempt widens to everything
+    # Final attempt widens to everything, unless the user picked the source.
+    if not d.overridden and set(d.searched) != set(DOC_SOURCES):
         d.searched = list(DOC_SOURCES)
         d.fallback = True
     return {"rewritten_query": rewritten or q, "decision": d}
